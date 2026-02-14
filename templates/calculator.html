@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Калькулятор</title>
+</head>
+<body>
+	<h1>Калькулятор</h1>
+	<form method="POST" action="/calculator">
+		<label>a: <input type="number" step="any" name="a" value="{{.A}}" /></label>
+		<label>b: <input type="number" step="any" name="b" value="{{.B}}" /></label>
+		<button type="submit">Сложить</button>
+	</form>
+	{{if .Error}}
+		<p style="color: red;">{{.Error}}</p>
+	{{else if .HasResult}}
+		<p>Результат: <output>{{.Result}}</output></p>
+	{{end}}
+</body>
+</html>
