@@ -1,0 +1,63 @@
+
+x-logging: &rotating-json-file
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+name: web-go-prg
+
+services:
+  db:
+    image: postgres:16-alpine
+    logging: *rotating-json-file
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: web_go_prg
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - net_backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d web_go_prg"]
+      interval: 3s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    logging: *rotating-json-file
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/web_go_prg?sslmode=disable
+      PORT: "8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - net_proxy
+      - net_backend
+
+  proxy:
+    image: nginx:alpine
+    logging: *rotating-json-file
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - web
+    networks:
+      - net_proxy
+
+networks:
+  net_proxy:
+    driver: bridge
+  net_backend:
+    driver: bridge
+
+volumes:
+  pgdata:

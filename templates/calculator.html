@@ -17,5 +17,31 @@
 	{{else if .HasResult}}
 		<p>Результат: <output>{{.Result}}</output></p>
 	{{end}}
+
+	<h2>История операций</h2>
+	{{if .History}}
+	<table border="1" cellpadding="6" cellspacing="0">
+		<thead>
+			<tr>
+				<th>Время</th>
+				<th>a</th>
+				<th>b</th>
+				<th>Сумма</th>
+			</tr>
+		</thead>
+		<tbody>
+			{{range .History}}
+			<tr>
+				<td>{{.CreatedAt.Format "2006-01-02 15:04:05"}}</td>
+				<td>{{.OperandA}}</td>
+				<td>{{.OperandB}}</td>
+				<td>{{.Result}}</td>
+			</tr>
+			{{end}}
+		</tbody>
+	</table>
+	{{else}}
+		<p>Пока нет записей.</p>
+	{{end}}
 </body>
 </html>

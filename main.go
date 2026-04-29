@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"html/template"
 	"log"
 	"net/http"
@@ -8,12 +10,16 @@ import (
 	"strconv"
 	"time"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
+
 	"web-go-prg/internal/calculator"
+	"web-go-prg/internal/history"
 )
 
 var (
-	welcomeTmpl   *template.Template
+	welcomeTmpl    *template.Template
 	calculatorTmpl *template.Template
+	historyRepo    *history.Repository
 )
 
 func init() {
@@ -77,13 +83,25 @@ type calcData struct {
 	Result    float64
 	HasResult bool
 	Error     string
+	History   []history.Entry
+}
+
+func loadHistory(ctx context.Context) ([]history.Entry, error) {
+	return historyRepo.ListRecent(ctx, 50)
 }
 
 func calculatorHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	ctx := r.Context()
 
 	if r.Method == http.MethodGet {
-		if err := calculatorTmpl.Execute(w, calcData{}); err != nil {
+		hist, err := loadHistory(ctx)
+		if err != nil {
+			log.Printf("list history: %v", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		if err := calculatorTmpl.Execute(w, calcData{History: hist}); err != nil {
 			log.Printf("template execute: %v", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		}
@@ -103,23 +121,44 @@ func calculatorHandler(w http.ResponseWriter, r *http.Request) {
 	aStr := r.PostFormValue("a")
 	bStr := r.PostFormValue("b")
 
+	hist, err := loadHistory(ctx)
+	if err != nil {
+		log.Printf("list history: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
 	a, err := strconv.ParseFloat(aStr, 64)
 	if err != nil {
-		calculatorTmpl.Execute(w, calcData{A: aStr, B: bStr, Error: "Неверное число a"})
+		calculatorTmpl.Execute(w, calcData{A: aStr, B: bStr, Error: "Неверное число a", History: hist})
 		return
 	}
 	b, err := strconv.ParseFloat(bStr, 64)
 	if err != nil {
-		calculatorTmpl.Execute(w, calcData{A: aStr, B: bStr, Error: "Неверное число b"})
+		calculatorTmpl.Execute(w, calcData{A: aStr, B: bStr, Error: "Неверное число b", History: hist})
 		return
 	}
 
 	result := calculator.Sum(a, b)
+	if err := historyRepo.InsertSum(ctx, a, b, result); err != nil {
+		log.Printf("insert history: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	hist, err = loadHistory(ctx)
+	if err != nil {
+		log.Printf("list history: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
 	data := calcData{
 		A:         aStr,
 		B:         bStr,
 		Result:    result,
 		HasResult: true,
+		History:   hist,
 	}
 	if err := calculatorTmpl.Execute(w, data); err != nil {
 		log.Printf("template execute: %v", err)
@@ -128,6 +167,34 @@ func calculatorHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		dsn = "postgres://postgres:postgres@localhost:5432/web_go_prg?sslmode=disable"
+	}
+
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(time.Hour)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := db.PingContext(ctx); err != nil {
+		log.Fatalf("database ping: %v", err)
+	}
+	log.Printf("postgres: connected")
+
+	historyRepo = history.NewRepository(db)
+	if err := historyRepo.EnsureSchema(ctx); err != nil {
+		log.Fatalf("ensure schema: %v", err)
+	}
+	log.Printf("postgres: ensured schema (table operation_history if missing)")
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
