@@ -39,9 +39,13 @@ jobs:
         run: go build -o web-go-prg .
 
   docker:
-    name: Docker Build
+    name: Build and Publish Docker
     runs-on: ubuntu-latest
     needs: test
+
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout repository
@@ -50,9 +54,20 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
+      - name: Log in to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: false
-          tags: web-go-prg:ci
+          push: ${{ github.event_name == 'push' }}
+          tags: |
+            ghcr.io/gogeezy/web-go-prg:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/gogeezy/web-go-prg
