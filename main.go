@@ -202,8 +202,13 @@ func main() {
 	addr := ":" + port
 
 	mux := http.NewServeMux()
+
 	mux.HandleFunc("/", welcomeHandler)
 	mux.HandleFunc("/calculator", calculatorHandler)
+
+	//Kubernetes health cheks
+	mux.HandleFunc("/healthz", healthHandler)
+	mux.HandleFunc("/readyz", readyHandler(db))
 
 	log.Printf("Listening on %s", addr)
 	if err := http.ListenAndServe(addr, loggingMiddleware(mux)); err != nil {
