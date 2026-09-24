@@ -11,6 +11,7 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"web-go-prg/internal/calculator"
 	"web-go-prg/internal/history"
@@ -210,8 +211,14 @@ func main() {
 	mux.HandleFunc("/healthz", healthHandler)
 	mux.HandleFunc("/readyz", readyHandler(db))
 
+	//Prometheus metrics
+	mux.Handle("/metrics", promhttp.Handler())
+
 	log.Printf("Listening on %s", addr)
-	if err := http.ListenAndServe(addr, loggingMiddleware(mux)); err != nil {
+	if err := http.ListenAndServe(
+		addr,
+		loggingMiddleware(metricsMiddleware(mux)),
+	); err != nil {
 		log.Fatal(err)
 	}
 }
