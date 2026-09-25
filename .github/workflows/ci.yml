@@ -71,3 +71,32 @@ jobs:
             ghcr.io/gogeezy/web-go-prg:sha-${{ github.sha }}
           labels: |
             org.opencontainers.image.source=https://github.com/gogeezy/web-go-prg
+
+  helm:
+    name: Helm Lint and Template
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.17.3
+
+      - name: Lint Helm chart
+        run: helm lint deploy/helm/web-go-prg
+
+      - name: Render Kubernetes manifests
+        run: |
+          helm template web-go-prg \
+            deploy/helm/web-go-prg \
+            --set image.tag=sha-test \
+            > /tmp/web-go-prg.yaml
+
+      - name: Verify Kubernetes resources
+        run: |
+          grep -q 'kind: Deployment' /tmp/web-go-prg.yaml
+          grep -q 'kind: StatefulSet' /tmp/web-go-prg.yaml
+          grep -q 'volumeClaimTemplates:' /tmp/web-go-prg.yaml
