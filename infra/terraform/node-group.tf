@@ -8,8 +8,9 @@ resource "yandex_kubernetes_node_group" "diploma" {
     platform_id = "standard-v2"
 
     resources {
-      cores  = 2
-      memory = 4
+      cores         = 2
+      memory        = 4
+      core_fraction = 100
     }
 
     boot_disk {
