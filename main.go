@@ -57,7 +57,7 @@ func (rw *responseWriter) Write(p []byte) (n int, err error) {
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		wrapped := &responseWriter{ResponseWriter: w, status: http.StatusOK}
+		wrapped := &responseWriter{ResponseWriter: w}
 		next.ServeHTTP(wrapped, r)
 		if wrapped.status == 0 {
 			wrapped.status = http.StatusOK

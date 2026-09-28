@@ -1,0 +1,15 @@
+# Production configuration for Yandex Managed Kubernetes.
+# Image tag will be updated automatically by CI/CD.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/gogeezy/web-go-prg
+  pullPolicy: IfNotPresent
+  tag: sha-04cd253ee0f60500cd4c0689fffc24282dcd8961
+
+autoscaling:
+  enabled: false
+
+ingress:
+  enabled: false

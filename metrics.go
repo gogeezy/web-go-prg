@@ -46,7 +46,6 @@ func metricsMiddleware(next http.Handler) http.Handler {
 
 		wrapped := &responseWriter{
 			ResponseWriter: w,
-			status:         http.StatusOK,
 		}
 
 		next.ServeHTTP(wrapped, r)
@@ -57,6 +56,10 @@ func metricsMiddleware(next http.Handler) http.Handler {
 			// Known application routes.
 		default:
 			path = "/other"
+		}
+
+		if wrapped.status == 0 {
+			wrapped.status = http.StatusOK
 		}
 
 		status := strconv.Itoa(wrapped.status)
