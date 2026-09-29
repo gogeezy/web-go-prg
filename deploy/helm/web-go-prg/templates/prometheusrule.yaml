@@ -1,0 +1,37 @@
+{{- if .Values.prometheusRule }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "web-go-prg.fullname" . }}
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: web-go-prg.rules
+      rules:
+        - alert: ApplicationDown
+          expr: |
+            absent(up{namespace="diploma",job="diploma-web-go-prg"})
+            or
+            max(up{namespace="diploma",job="diploma-web-go-prg"}) == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Go application is unavailable"
+            description: "Prometheus cannot reach the Go application."
+
+        - alert: HTTPErrorBurst
+          expr: |
+            sum(increase(app_http_requests_total{
+              namespace="diploma",
+              job="diploma-web-go-prg",
+              status=~"4..|5.."
+            }[5m])) > 4
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Multiple HTTP errors detected"
+            description: "More than four HTTP errors in five minutes."
+{{- end }}

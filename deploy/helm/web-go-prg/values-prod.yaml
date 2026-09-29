@@ -21,3 +21,5 @@ ingress:
           pathType: Prefix
 
 serviceMonitor: true
+
+prometheusRule: true
