@@ -86,7 +86,10 @@ jobs:
           version: v3.17.3
 
       - name: Lint Helm chart
-        run: helm lint deploy/helm/web-go-prg
+        run: |
+          helm lint deploy/helm/web-go-prg
+          helm lint deploy/helm/web-go-prg \
+            -f deploy/helm/web-go-prg/values-prod.yaml
 
       - name: Render Kubernetes manifests
         run: |
@@ -100,3 +103,57 @@ jobs:
           grep -q 'kind: Deployment' /tmp/web-go-prg.yaml
           grep -q 'kind: StatefulSet' /tmp/web-go-prg.yaml
           grep -q 'volumeClaimTemplates:' /tmp/web-go-prg.yaml
+
+  update-gitops:
+    name: Update production image tag
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [docker, helm]
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    concurrency:
+      group: gitops-main
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update production image tag
+        shell: bash
+        run: |
+          git fetch origin main
+
+          # Не разворачиваем устаревшую сборку.
+          if [[ "$(git rev-parse origin/main)" != "$GITHUB_SHA" ]]; then
+            echo "Main has advanced. Skipping outdated build."
+            exit 0
+          fi
+
+          git checkout -B main origin/main
+
+          VALUES=deploy/helm/web-go-prg/values-prod.yaml
+
+          sed -i -E \
+            "s/^(  tag: )sha-[0-9a-f]{40}$/\1sha-${GITHUB_SHA}/" \
+            "$VALUES"
+
+          grep -Fxq "  tag: sha-${GITHUB_SHA}" "$VALUES"
+
+          # Не создаём коммит, если тег уже правильный.
+          if git diff --quiet -- "$VALUES"; then
+            echo "Image tag is already up to date."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add "$VALUES"
+          git commit -m "chore: update production image [skip ci]"
+          git push origin HEAD:main
