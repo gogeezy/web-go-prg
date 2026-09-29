@@ -59,6 +59,14 @@ else
         exit 1
     fi
 
+    # Новый пароль разрешён только при первом развёртывании.
+    if [[ "${ALLOW_NEW_DATABASE:-0}" != "1" ]]; then
+        echo "ERROR: Password file is missing." >&2
+        echo "Restore the password from backup." >&2
+        echo "For a verified new database, set ALLOW_NEW_DATABASE=1." >&2
+        exit 1
+    fi
+
     PASSWORD=$(openssl rand -hex 24)
     (set -C; printf '%s\n' "$PASSWORD" > "$PASSWORD_FILE")
 fi
