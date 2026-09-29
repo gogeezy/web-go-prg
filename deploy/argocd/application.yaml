@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: diploma
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/gogeezy/web-go-prg.git
+    targetRevision: main
+    path: deploy/helm/web-go-prg
+    helm:
+      releaseName: diploma
+      valueFiles:
+        - values-prod.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: diploma
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
