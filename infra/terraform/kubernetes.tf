@@ -5,13 +5,17 @@ resource "yandex_kubernetes_cluster" "diploma" {
 
   network_id = yandex_vpc_network.diploma.id
 
+  cluster_ipv4_range = "10.96.0.0/16"
+  service_ipv4_range = "10.112.0.0/16"
+
   master {
     zonal {
       zone      = var.zone
       subnet_id = yandex_vpc_subnet.diploma.id
     }
 
-    public_ip = true
+    public_ip          = true
+    security_group_ids = [yandex_vpc_security_group.diploma.id]
   }
 
   service_account_id = yandex_iam_service_account.k8s.id

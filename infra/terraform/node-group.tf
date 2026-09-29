@@ -23,7 +23,8 @@ resource "yandex_kubernetes_node_group" "diploma" {
         yandex_vpc_subnet.diploma.id
       ]
 
-      nat = true
+      nat                = true
+      security_group_ids = [yandex_vpc_security_group.diploma.id]
     }
 
     scheduling_policy {
