@@ -12,4 +12,10 @@ autoscaling:
   enabled: false
 
 ingress:
-  enabled: false
+  enabled: true
+  className: nginx
+  hosts:
+    - host: 158.160.233.167.nip.io
+      paths:
+        - path: /
+          pathType: Prefix
