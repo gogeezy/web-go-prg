@@ -22,12 +22,47 @@ fi
 # Не изменяем пароль существующей базы данных.
 if kubectl -n "$NAMESPACE" get secret "$SECRET_NAME" \
     >/dev/null 2>&1; then
+
+    if [[ ! -s "$HOME/.config/web-go-prg/db-password" ]]; then
+        echo "ERROR: Secret exists, but local password backup is missing." >&2
+        exit 1
+    fi
+
     echo "Database Secret already exists. No changes made."
     exit 0
 fi
 
 # Генерируем пароль и адрес PostgreSQL.
-PASSWORD=$(openssl rand -hex 24)
+PASSWORD_FILE="$HOME/.config/web-go-prg/db-password"
+
+# Только владелец может читать файлы с паролями.
+umask 077
+mkdir -p "$(dirname "$PASSWORD_FILE")"
+chmod 700 "$(dirname "$PASSWORD_FILE")"
+
+if [[ -f "$PASSWORD_FILE" ]]; then
+    PASSWORD=$(<"$PASSWORD_FILE")
+    if [[ -z "$PASSWORD" ]]; then
+        echo "Error: password file is empty." >&2
+        exit 1
+    fi
+else
+    # Не создаём новый пароль для существующей базы.
+    PVC_NAME=postgres-data-diploma-postgresql-0
+
+    EXISTING_PVC=$(kubectl -n "$NAMESPACE" get pvc "$PVC_NAME" \
+        --ignore-not-found -o name)
+
+    if [[ -n "$EXISTING_PVC" ]]; then
+        echo "ERROR: PostgreSQL PVC exists, but password file is missing." >&2
+        echo "Restore the original password from backup." >&2
+        exit 1
+    fi
+
+    PASSWORD=$(openssl rand -hex 24)
+    (set -C; printf '%s\n' "$PASSWORD" > "$PASSWORD_FILE")
+fi
+chmod 600 "$PASSWORD_FILE"
 
 DATABASE_URL="postgres://postgres:${PASSWORD}@diploma-postgresql:5432/web_go_prg?sslmode=disable"
 
