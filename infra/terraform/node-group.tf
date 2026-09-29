@@ -9,7 +9,7 @@ resource "yandex_kubernetes_node_group" "diploma" {
 
     resources {
       cores         = 2
-      memory        = 4
+      memory        = 8
       core_fraction = 100
     }
 
