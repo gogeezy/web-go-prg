@@ -1,0 +1,12 @@
+[Unit]
+Description=Telegram alert bridge for diploma monitoring
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=user1
+Environment=HOME=/home/user1
+Environment=KUBE_CONTEXT=diploma-k8s
+WorkingDirectory=/home/user1/web-go-prg
+ExecStart=/usr/bin/python3 /home/user1/web-go-prg/scripts/telegram-alert-bridge.py
