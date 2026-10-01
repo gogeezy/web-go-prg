@@ -13,6 +13,8 @@ ARGOCD_VERSION="v3.5.3"
 : "${TF_VAR_cloud_id:?Set TF_VAR_cloud_id}"
 : "${TF_VAR_folder_id:?Set TF_VAR_folder_id}"
 : "${TF_VAR_admin_cidr:?Set TF_VAR_admin_cidr}"
+: "${TELEGRAM_BOT_TOKEN:?Set TELEGRAM_BOT_TOKEN}"
+: "${TELEGRAM_CHAT_ID:?Set TELEGRAM_CHAT_ID}"
 
 for cmd in terraform yc kubectl helm curl; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
@@ -102,6 +104,28 @@ bash "$ROOT_DIR/scripts/create-db-secret.sh"
 
 echo "Argo CD and database Secret: READY"
 
+echo "==> Installing monitoring stack"
+helm repo add prometheus-community \
+    https://prometheus-community.github.io/helm-charts \
+    --force-update
+
+helm repo update
+
+helm upgrade --install monitoring \
+    prometheus-community/kube-prometheus-stack \
+    --namespace monitoring \
+    --create-namespace \
+    --version "$MONITORING_CHART_VERSION" \
+    --values "$ROOT_DIR/deploy/monitoring/values.yaml" \
+    --wait \
+    --timeout 15m
+
+echo "==> Installing Grafana application dashboard"
+kubectl --context "$KUBE_CONTEXT" apply \
+    -f "$ROOT_DIR/deploy/monitoring/app-dashboard.yaml"
+
+echo "Monitoring: READY"
+
 echo "==> Configuring Argo CD application"
 kubectl --context "$KUBE_CONTEXT" apply \
     -f "$ROOT_DIR/deploy/argocd/application.yaml"
@@ -131,31 +155,8 @@ kubectl --context "$KUBE_CONTEXT" -n diploma rollout status \
 
 echo "Application: READY at http://${APP_HOST}"
 
-echo "==> Installing monitoring stack"
-helm repo add prometheus-community \
-    https://prometheus-community.github.io/helm-charts \
-    --force-update
-
-helm repo update
-
-helm upgrade --install monitoring \
-    prometheus-community/kube-prometheus-stack \
-    --namespace monitoring \
-    --create-namespace \
-    --version "$MONITORING_CHART_VERSION" \
-    --values "$ROOT_DIR/deploy/monitoring/values.yaml" \
-    --wait \
-    --timeout 15m
-
-echo "==> Installing Grafana application dashboard"
-kubectl --context "$KUBE_CONTEXT" apply \
-    -f "$ROOT_DIR/deploy/monitoring/app-dashboard.yaml"
-
-echo "Monitoring: READY"
 
 echo "==> Configuring Telegram alert bridge"
-: "${TELEGRAM_BOT_TOKEN:?Set TELEGRAM_BOT_TOKEN}"
-: "${TELEGRAM_CHAT_ID:?Set TELEGRAM_CHAT_ID}"
 
 kubectl --context "$KUBE_CONTEXT" -n monitoring create secret generic monitoring-telegram \
     --from-literal=bot-token="$TELEGRAM_BOT_TOKEN" \

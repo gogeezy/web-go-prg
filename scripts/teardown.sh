@@ -21,6 +21,9 @@ if [[ "$CURRENT_CONTEXT" != "$KUBE_CONTEXT" ]]; then
     exit 1
 fi
 
+echo "==> Stopping Telegram alert bridge"
+sudo systemctl disable --now telegram-alert-bridge.timer 2>/dev/null || true
+
 echo "==> Removing Kubernetes workloads and external LoadBalancer"
 
 helm uninstall nginx-ingress -n nginx-ingress --ignore-not-found || true
