@@ -19,6 +19,8 @@ kubeProxy:
   enabled: false
 
 grafana:
+  env:
+    GF_PLUGINS_PREINSTALL_AUTO_UPDATE: "false"
   resources:
     requests:
       cpu: 50m
