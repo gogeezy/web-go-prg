@@ -116,3 +116,122 @@ go test ./...
 ```bash
 go test ./internal/calculator/...
 ```
+
+---
+
+## Production-инфраструктура
+
+Production-окружение развёртывается в Yandex Cloud на базе Managed Service for Kubernetes.
+
+Инфраструктура описана Terraform в каталоге [`infra/terraform`](infra/terraform). Terraform создаёт VPC, подсеть, security group, service account, Managed Kubernetes cluster и node group.
+
+Kubernetes-манифесты приложения упакованы в Helm chart [`deploy/helm/web-go-prg`](deploy/helm/web-go-prg).
+
+Подробная схема компонентов и потоков находится в [`docs/architecture.md`](docs/architecture.md).
+
+## Публичный доступ
+
+Приложение публикуется через NGINX Ingress Controller и Yandex Cloud Network Load Balancer.
+
+После развёртывания внешний адрес имеет вид:
+
+`http://<EXTERNAL-IP>.nip.io`
+
+Проверка состояния приложения:
+
+```bash
+curl http://<EXTERNAL-IP>.nip.io/healthz
+```
+
+Приложение также предоставляет:
+
+- `/readyz` — readiness probe;
+- `/metrics` — Prometheus metrics.
+
+## CI/CD и GitOps
+
+GitHub Actions выполняет CI для изменений в репозитории: запускает тесты, проверяет Helm chart и собирает Docker image.
+
+Образы публикуются в GitHub Container Registry (GHCR) с immutable-тегом, содержащим SHA Git-коммита.
+
+Для ветки `main` workflow автоматически обновляет production image tag в `deploy/helm/web-go-prg/values-prod.yaml`.
+
+Argo CD отслеживает ветку `main` и автоматически синхронизирует состояние Kubernetes с Git.
+
+Production-поток:
+
+`Git push -> GitHub Actions -> GHCR -> GitOps commit -> Argo CD -> Kubernetes`
+
+Это позволяет выполнять deployment и rollback через историю Git без ручного изменения Deployment в Kubernetes.
+
+## Хранение данных
+
+PostgreSQL развёрнут в Kubernetes вместе с приложением и использует PersistentVolumeClaim.
+
+Данные сохраняются при удалении и повторном создании Pod PostgreSQL. Это позволяет отделить жизненный цикл Pod от жизненного цикла данных.
+
+Секрет подключения к базе данных хранится в Kubernetes Secret `web-go-prg-db` и не сохраняется в Git.
+
+## Мониторинг и алерты
+
+Для мониторинга используется `kube-prometheus-stack`:
+
+- Prometheus собирает метрики приложения через ServiceMonitor;
+- Grafana содержит dashboard `Web Go App`;
+- PrometheusRule определяет алерты `ApplicationDown` и `HTTPErrorBurst`;
+- Alertmanager обрабатывает срабатывания алертов.
+
+Telegram-уведомления доставляются через `scripts/telegram-alert-bridge.py`, запущенный systemd timer на управляющем Ubuntu-сервере. Bridge получает активные alerts из Alertmanager и отправляет состояния FIRING/RESOLVED в Telegram.
+
+## Автоматическое развёртывание
+
+Для воспроизводимого развёртывания используется:
+
+```bash
+./scripts/bootstrap.sh
+```
+
+Перед запуском должны быть настроены `yc`, `kubectl`, `helm`, `terraform` и доступ к Yandex Cloud.
+
+Скрипту передаются необходимые параметры Terraform и Telegram через переменные окружения. Секреты не должны сохраняться в Git.
+
+Bootstrap выполняет создание инфраструктуры, настройку Kubernetes context, установку NGINX Ingress, Argo CD и monitoring stack, создание необходимых Kubernetes Secrets и запуск Telegram alert bridge.
+
+## Безопасное удаление стенда
+
+Удаление инфраструктуры защищено дополнительным подтверждением через переменную `DESTROY`.
+
+```bash
+DESTROY=1 ./scripts/teardown.sh
+```
+
+Скрипт удаляет Kubernetes workloads и LoadBalancer, после чего запускает `terraform destroy`.
+
+Команда является разрушительной: PersistentVolume и данные PostgreSQL при полном teardown могут быть удалены.
+
+## Rollback
+
+Rollback production выполняется через Git: в `values-prod.yaml` возвращается ранее работавший immutable image tag `sha-<commit>`, изменение коммитится в `main`, после чего Argo CD синхронизирует предыдущую версию приложения.
+
+Проверка состояния Argo CD:
+
+```bash
+kubectl -n argocd get applications
+```
+
+Проверка фактически запущенного image:
+
+```bash
+kubectl -n diploma get deployment diploma-web-go-prg \
+  -o jsonpath='{.spec.template.spec.containers[0].image}{"\n"}'
+```
+
+## Основные каталоги
+
+- `infra/terraform/` — инфраструктура Yandex Cloud;
+- `deploy/helm/web-go-prg/` — Helm chart приложения;
+- `deploy/argocd/` — конфигурация Argo CD;
+- `deploy/monitoring/` — monitoring values и Grafana dashboard;
+- `deploy/systemd/` — systemd units Telegram bridge;
+- `scripts/` — bootstrap, teardown и эксплуатационные скрипты;
+- `docs/` — архитектура и runbook.
