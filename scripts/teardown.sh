@@ -15,6 +15,11 @@ fi
 : "${TF_VAR_folder_id:?Set TF_VAR_folder_id}"
 : "${TF_VAR_admin_cidr:?Set TF_VAR_admin_cidr}"
 
+if [[ -z "${YC_TOKEN:-}" ]]; then
+    YC_TOKEN="$(yc iam create-token)"
+    export YC_TOKEN
+fi
+
 CURRENT_CONTEXT="$(kubectl config current-context)"
 if [[ "$CURRENT_CONTEXT" != "$KUBE_CONTEXT" ]]; then
     echo "ERROR: expected context '$KUBE_CONTEXT', got '$CURRENT_CONTEXT'." >&2

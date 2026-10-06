@@ -23,6 +23,11 @@ for cmd in terraform yc kubectl helm curl; do
     fi
 done
 
+if [[ -z "${YC_TOKEN:-}" ]]; then
+    YC_TOKEN="$(yc iam create-token)"
+    export YC_TOKEN
+fi
+
 echo "Bootstrap prerequisites: OK"
 echo "Cluster: $CLUSTER_NAME"
 echo "Argo CD: $ARGOCD_VERSION"
