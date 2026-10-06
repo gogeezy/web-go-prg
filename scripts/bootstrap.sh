@@ -99,6 +99,14 @@ kubectl --context "$KUBE_CONTEXT" create namespace argocd \
 kubectl --context "$KUBE_CONTEXT" apply --server-side --force-conflicts -n argocd \
     -f "https://raw.githubusercontent.com/argoproj/argo-cd/${ARGOCD_VERSION}/manifests/install.yaml"
 
+kubectl --context "$KUBE_CONTEXT" -n argocd set image \
+    deployment/argocd-redis \
+    redis=mirror.gcr.io/library/redis:8.2.3-alpine
+
+kubectl --context "$KUBE_CONTEXT" -n argocd rollout status \
+    deployment/argocd-redis \
+    --timeout=10m
+
 kubectl --context "$KUBE_CONTEXT" -n argocd rollout status \
     deployment/argocd-server \
     --timeout=10m
