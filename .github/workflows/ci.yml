@@ -157,3 +157,44 @@ jobs:
           git add "$VALUES"
           git commit -m "chore: update production image [skip ci]"
           git push origin HEAD:main
+
+  notify:
+    name: Notify Telegram
+    if: ${{ always() && github.event_name == 'push' }}
+    needs: [test, docker, helm, update-gitops]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send CI/CD result to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TEST_RESULT: ${{ needs.test.result }}
+          DOCKER_RESULT: ${{ needs.docker.result }}
+          HELM_RESULT: ${{ needs.helm.result }}
+          GITOPS_RESULT: ${{ needs.update-gitops.result }}
+        shell: bash
+        run: |
+          STATUS="SUCCESS"
+
+          if [[ "$TEST_RESULT" != "success" ||
+                "$DOCKER_RESULT" != "success" ||
+                "$HELM_RESULT" != "success" ]]; then
+            STATUS="FAILURE"
+          fi
+
+          if [[ "$GITHUB_REF" == "refs/heads/main" &&
+                "$GITOPS_RESULT" != "success" ]]; then
+            STATUS="FAILURE"
+          fi
+
+          MESSAGE=$(printf \
+            'CI/CD %s\nRepository: %s\nBranch: %s\nCommit: %.7s\nTest: %s\nDocker: %s\nHelm: %s\nGitOps: %s' \
+            "$STATUS" "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" "$GITHUB_SHA" \
+            "$TEST_RESULT" "$DOCKER_RESULT" "$HELM_RESULT" "$GITOPS_RESULT")
+
+          curl --fail --silent --show-error --output /dev/null \
+            --request POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${MESSAGE}"
