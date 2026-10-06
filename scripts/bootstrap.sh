@@ -64,6 +64,7 @@ helm upgrade --install nginx-ingress \
     --namespace nginx-ingress \
     --create-namespace \
     --version "$NGINX_CHART_VERSION" \
+    --set controller.image.repository=ghcr.io/nginx/kubernetes-ingress \
     --wait \
     --timeout 10m
 
