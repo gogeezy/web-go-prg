@@ -6,7 +6,7 @@ replicaCount: 1
 image:
   repository: ghcr.io/gogeezy/web-go-prg
   pullPolicy: IfNotPresent
-  tag: sha-646fa109a9b6bcac8f82daa4c53c013243840b48
+  tag: sha-c118d59577ebf40dfc3c2943be916f8d6f083141
 
 autoscaling:
   enabled: false
