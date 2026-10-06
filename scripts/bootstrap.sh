@@ -119,11 +119,21 @@ bash "$ROOT_DIR/scripts/create-db-secret.sh"
 echo "Argo CD and database Secret: READY"
 
 echo "==> Installing monitoring stack"
-helm repo add prometheus-community \
-    https://prometheus-community.github.io/helm-charts \
-    --force-update
+for attempt in 1 2 3 4 5; do
+    if helm repo add prometheus-community \
+        https://prometheus-community.github.io/helm-charts \
+        --force-update && helm repo update; then
+        break
+    fi
 
-helm repo update
+    if [[ "$attempt" == "5" ]]; then
+        echo "ERROR: monitoring Helm repository is unavailable after 5 attempts" >&2
+        exit 1
+    fi
+
+    echo "Monitoring Helm repository unavailable; retrying in 10s ($attempt/5)..."
+    sleep 10
+done
 
 helm upgrade --install monitoring \
     prometheus-community/kube-prometheus-stack \
