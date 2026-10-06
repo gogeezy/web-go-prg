@@ -95,7 +95,7 @@ kubectl --context "$KUBE_CONTEXT" create namespace argocd \
     --dry-run=client -o yaml | \
     kubectl --context "$KUBE_CONTEXT" apply -f -
 
-kubectl --context "$KUBE_CONTEXT" apply -n argocd \
+kubectl --context "$KUBE_CONTEXT" apply --server-side --force-conflicts -n argocd \
     -f "https://raw.githubusercontent.com/argoproj/argo-cd/${ARGOCD_VERSION}/manifests/install.yaml"
 
 kubectl --context "$KUBE_CONTEXT" -n argocd rollout status \
