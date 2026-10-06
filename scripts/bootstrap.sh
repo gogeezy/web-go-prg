@@ -122,7 +122,7 @@ helm upgrade --install monitoring \
     --create-namespace \
     --version "$MONITORING_CHART_VERSION" \
     --values "$ROOT_DIR/deploy/monitoring/values.yaml" \
-    --wait \
+    --wait=legacy \
     --timeout 15m
 
 echo "==> Installing Grafana application dashboard"
