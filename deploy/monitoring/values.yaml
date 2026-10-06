@@ -19,6 +19,8 @@ kubeProxy:
   enabled: false
 
 grafana:
+  image:
+    registry: mirror.gcr.io
   env:
     GF_PLUGINS_PREINSTALL_AUTO_UPDATE: "false"
   resources:
