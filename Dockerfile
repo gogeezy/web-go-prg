@@ -15,3 +15,6 @@ COPY --from=builder /web-go-prg  .
 COPY --from=builder /src/templates ./templates
 USER nonroot
 ENTRYPOINT ["/app/web-go-prg"]
+
+
+
