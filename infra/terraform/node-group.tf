@@ -15,7 +15,7 @@ resource "yandex_kubernetes_node_group" "diploma" {
 
     boot_disk {
       type = "network-hdd"
-      size = 64
+      size = 20
     }
 
     network_interface {
